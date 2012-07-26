@@ -44,7 +44,7 @@ class ExceptIterator extends FilterIterator {
   }
 }
 
-class PinqIterator extends FilterIterator {
+class WhereIterator extends FilterIterator {
 
   public $filter;
 
@@ -60,7 +60,7 @@ class PinqIterator extends FilterIterator {
     $iterator = $this->getInnerIterator();
     $key = $iterator->key();
     $current = $iterator->current();
-    return $this->filter($key, $current, $iterator);
+    return call_user_func($this->filter, $key, $current);
   }
 }
 
@@ -75,7 +75,7 @@ class PinqIterator extends FilterIterator {
    maybe we can use IteratorIterator to wrap all the iterators we want to add from our
    deferred execution methods?
 */
-class PinqList implements IteratorAggregate {
+class PinqIterator implements OuterIterator {
 
   public $iterator;
 
@@ -87,11 +87,11 @@ class PinqList implements IteratorAggregate {
   }
 
   public static function create($array = array()) {
-    return new PinqList($array);
+    return new PinqIterator($array);
   }
 
   public function aggregate($seed = null, $callback) {
-    return Pinq::aggregate($this, $seed, $callback);
+    return Pinq::aggregate($this->iterator, $seed, $callback);
   }
 
   public function all($callback) {
@@ -124,45 +124,50 @@ class PinqList implements IteratorAggregate {
   }
 
   public function count() {
-    return Pinq::count($this);
+    return Pinq::count($this->iterator);
   }
 
   // deferred
   public function distinct() {
-    $this->iterator = new DistinctIterator($this);
+    $this->iterator = new DistinctIterator($this->iterator);
+    return $this;
   }
 
   // deferred
   public function except($array) {
-    $this->iterator = new ExceptIterator($this, $array);
+    $this->iterator = new ExceptIterator($this->iterator, $array);
+    return $this;
   }
 
   public function first($callback = null) {
-    return Pinq::first($this, $callback);
+    return Pinq::first($this->iterator, $callback);
   }
 
   // deferred
   public function groupBy($keySelector, $valueSelector = null) {
 
+    return $this;
   }
 
   // deferred
   public function groupJoin() {
 
+    return $this;
   }
 
   // deferred
   public function intersct($array) {
 
+    return $this;
   }
 
   // deferred
   public function join() {
-
+    return $this;
   }
 
   public function last($callback = null) {
-    return Pinq::last($this, $callback);
+    return Pinq::last($this->iterator, $callback);
   }
 
   public function max($projection = null) {
@@ -175,27 +180,31 @@ class PinqList implements IteratorAggregate {
 
   // deferred
   public function reverse() {
-
+    return $this;
   }
 
   // deferred
   public function select($callback) {
-    return stackCallback($callback);
+
+    return $this;
   }
 
   // deferred
   public function selectMany() {
 
+    return $this;
   }
 
   // deferred
   public function skip($howMany) {
 
+    return $this;
   }
 
   // deferred
   public function skipWhile($filter) {
 
+    return $this;
   }
 
   public function sum($projection = null) {
@@ -205,11 +214,23 @@ class PinqList implements IteratorAggregate {
   // deferred
   public function take($howMany) {
 
+    return $this;
   }
 
   // deferred
   public function takeWhile($filter) {
     
+    return $this;
+  }
+
+  public function toArray() {
+
+    var_dump($this);
+    $array = array();
+    foreach($this as $key => $value) {
+      $array[$key] = $value;
+    }
+    return $array;
   }
 
   // deferred
@@ -219,15 +240,19 @@ class PinqList implements IteratorAggregate {
 
   // deferred
   public function where($callback) {
-    return stackCallback($callback);
+
+    $this->iterator = new WhereIterator($this->iterator, $callback);
+    return $this;
   }
 
   // deferred
   public function zip($array, $callback) {
 
+    return $this;
   }
 
-  public function getIterator() {
+  public function getInnerIterator() {
+
     return $this->iterator;
   }
 
@@ -240,30 +265,30 @@ class PinqList implements IteratorAggregate {
   //   return $this;
   // }
 
-  // /* Iterator implementation */
-  // public function current() {
-  //   $key = parent::key();
-  //   $value = parent::current();
-  //   return $this->callback($key, $value, $this)->value;
-  // }
+  /* Iterator implementation */
+  public function current() {
 
-  // public function key() {
-  //   $key = parent::key();
-  //   $value = parent::current();
-  //   return $this->callback($key, $value, $this)->key;
-  // }
+    return $this->iterator->current();
+  }
 
-  // public function next() {
-  //   while(!($var = $this->callback()) && valid($this->array)) {
-  //     return $var;
-  //   }
-  // }
-  // public function rewind() {
+  public function key() {
 
-  // }
-  // public function valid() {
+    return $this->iterator->key();
+  }
 
-  // }
+  public function next() {
+
+    return $this->iterator->next();
+  }
+  public function rewind() {
+
+    var_dump($this);
+    return $this->iterator->rewind();
+  }
+  public function valid() {
+
+    return $this->iterator->valid();
+  }
 }
 
 /*
@@ -365,13 +390,7 @@ class Pinq {
   }
 
   public static function where($iterator, $callback) {
-    $where = array();
-    foreach($iterator as $key => $value) {
-      if($callback($key, $value, $iterator)) {
-        $where[$key] = $value;
-      }
-    }
-    return $where;
+    return PinqIterator::create($iterator)->where($callback);
   }
 
   public static function repeat($value, $times) {
