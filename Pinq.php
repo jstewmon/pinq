@@ -367,9 +367,9 @@ class Pinq {
 
   public static function last($iterator, $callback = null) {
     self::ensureCallback($callback, true);
-    // TODO: should this be a do/while? i think this actually misses the last element
-    end($iterator);
-    while(list($key, $value) = prev($iterator)) {
+    $value = end($iterator);
+    $key = key($iterator);
+    do {
       if($callback == null) {
         return new PinqItem($key, $value);
       }
@@ -377,6 +377,7 @@ class Pinq {
         return new PinqItem($key, $value);
       }
     }
+    while($value = prev($iterator)); 
   }
 
   public static function where($iterator, $callback) {
