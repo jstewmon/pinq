@@ -1,40 +1,10 @@
 <?
 
-if(PinqList::create($array)->where(function($k, $v, $l) {
-  return $v->number % 3 === 0;
-})->any()) {
-
-}
-
-$query = PinqList::create($array)
-->select(function($k, $v, $l) {
-    return array($v->Id => $v->Name);
-  })
-->where(function($k, $v, $l) {
-    return $v->Name === 'Stew';
-  });
-
-foreach($query as $item) {
-
-  $item->key;
-  $item->value;
-}
-
-class PinqItem {
-  public $key;
-  public $value;
-
-  function __construct($key, $value) {
-    $this->key = $key;
-    $this->value = $value;
-  }
-}
-
 class DistinctIterator extends FilterIterator {
   private $store;
   
   public function __construct($iterator) {
-    if(is_array($iterator)) {
+    if(!($iterator instanceof Iterator)) {
       $iterator = new ArrayIterator($iterator);
     }
     $this->store = new SplObjectStorage();
@@ -78,7 +48,7 @@ class PinqIterator extends FilterIterator {
 
   public $filter;
 
-  public function __construct(Iterator $iterator, $filter) {
+  public function __construct($iterator, $filter) {
     if(!is_callable($filter)) {
       throw new InvalidArgumentException('$filter should be callable');
     }
@@ -105,15 +75,15 @@ class PinqIterator extends FilterIterator {
    maybe we can use IteratorIterator to wrap all the iterators we want to add from our
    deferred execution methods?
 */
-class PinqList extends IteratorAggregate {
+class PinqList implements IteratorAggregate {
 
   public $iterator;
 
   function __construct($iterator = array()) {
-    parent::__construct($iterator);
-    // $this->callback = function($key, $value, $iterator, $cb) {
-    //   return $cb($key, $value, $iterator);
-    // };
+    if($iterator instanceof Iterator) {
+      $this->iterator = $iterator;
+    }
+    else $this->iterator = new ArrayIterator($iterator);
   }
 
   public static function create($array = array()) {
@@ -167,12 +137,12 @@ class PinqList extends IteratorAggregate {
     $this->iterator = new ExceptIterator($this, $array);
   }
 
-  public function first($callback) {
+  public function first($callback = null) {
     return Pinq::first($this, $callback);
   }
 
   // deferred
-  public function groupBy() {
+  public function groupBy($keySelector, $valueSelector = null) {
 
   }
 
@@ -191,8 +161,8 @@ class PinqList extends IteratorAggregate {
 
   }
 
-  public function last() {
-
+  public function last($callback = null) {
+    return Pinq::last($this, $callback);
   }
 
   public function max($projection = null) {
@@ -357,9 +327,9 @@ class Pinq {
     self::ensureCallback($callback, true);
 
     foreach($iterator as $key => $value) {
-      if(!$callback) return new PinqItem($key, $value);
+      if(!$callback) return array($key, $value, 'key' => $key, 'value' => $value);
       if($callback($key, $value, $iterator)) {
-        return new PinqItem($key, $value);
+        return array($key, $value, 'key' => $key, 'value' => $value);
       }
     }
     return null;
@@ -367,14 +337,28 @@ class Pinq {
 
   public static function last($iterator, $callback = null) {
     self::ensureCallback($callback, true);
+
+    $array = array();
+    if(!is_array($iterator)) {
+      foreach($iterator as $key => $value) {
+        $array[$key] = $value;
+      }
+    }
+    else $array = $iterator;
+    return self::lastFromArray($array, $callback);
+  }
+
+  private static function lastFromArray($iterator, $callback = null) {
+    self::ensureCallback($callback, true);
+    
     $value = end($iterator);
     $key = key($iterator);
     do {
       if($callback == null) {
-        return new PinqItem($key, $value);
+        return array($key, $value, 'key' => $key, 'value' => $value);
       }
       if($callback($key, $value, $iterator)) {
-        return new PinqItem($key, $value);
+        return array($key, $value, 'key' => $key, 'value' => $value);
       }
     }
     while($value = prev($iterator)); 
@@ -392,6 +376,12 @@ class Pinq {
 
   public static function repeat($value, $times) {
 
+  }
+
+  public static function ensureIterator($iterator) {
+    if($iterator instanceof Traversable) return;
+    if(is_array($iterator)) return;
+    throw new InvalidArgumentException('$iterator must be either an array or an instance of Traversable');
   }
 
   public static function ensureCallback($callback, $allowNull = false) {
