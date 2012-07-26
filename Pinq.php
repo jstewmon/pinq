@@ -30,7 +30,7 @@ class PinqItem {
   }
 }
 
-class DistinctIterator extends FilterIterator{
+class DistinctIterator extends FilterIterator {
   private $store;
   
   public function __construct($iterator) {
@@ -52,6 +52,26 @@ class DistinctIterator extends FilterIterator{
     }
   }
 
+}
+
+class ExceptIterator extends FilterIterator {
+  private $exceptStore;
+
+  public function __construct($iterator, $except) {
+
+    foreach($except as $value) {
+      $this->exceptStore->detach($value);
+    }
+    parent::__construct($iterator);
+  }
+
+  public function accept() {
+
+    if($this->exceptStore->offsetExists($current)) {
+      return false;
+    }
+    else return true;
+  }
 }
 
 class PinqIterator extends FilterIterator {
@@ -144,11 +164,11 @@ class PinqList extends IteratorAggregate {
 
   // deferred
   public function except($array) {
-
+    $this->iterator = new ExceptIterator($this, $array);
   }
 
   public function first($callback) {
-
+    return Pinq::first($this, $callback);
   }
 
   // deferred
@@ -343,6 +363,20 @@ class Pinq {
       }
     }
     return null;
+  }
+
+  public static function last($iterator, $callback = null) {
+    self::ensureCallback($callback, true);
+    // TODO: should this be a do/while? i think this actually misses the last element
+    end($iterator);
+    while(list($key, $value) = prev($iterator)) {
+      if($callback == null) {
+        return new PinqItem($key, $value);
+      }
+      if($callback($key, $value, $iterator)) {
+        return new PinqItem($key, $value);
+      }
+    }
   }
 
   public static function where($iterator, $callback) {
