@@ -33,7 +33,6 @@ class ExceptIterator extends FilterIterator
 
   public function __construct($iterator, $except)
   {
-
     foreach($except as $value) {
       $this->exceptStore->detach($value);
     }
@@ -173,7 +172,7 @@ class PinqIterator implements OuterIterator
   {
     $itr = new AppendIterator();
     $itr->append($this->iterator);
-    $itr->append($iterator);
+    $itr->append(Pinq::ensureIterator($iterator, true));
     $this->iterator = $itr;
     return $this;
   }
@@ -295,7 +294,7 @@ class PinqIterator implements OuterIterator
 
   public function sum($projection = null)
   {
-
+    return Pinq::sum($this->iterator, $projection);
   }
 
   // deferred
@@ -312,11 +311,12 @@ class PinqIterator implements OuterIterator
     return $this;
   }
 
-  public function toArray()
+  public function toArray($withKeys = false)
   {
     $array = array();
     foreach($this as $key => $value) {
-      $array[$key] = $value;
+      if($withKeys) $array[$key] = $value;
+      else $array[] = $value;
     }
     return $array;
   }
@@ -324,13 +324,16 @@ class PinqIterator implements OuterIterator
   // deferred
   public function union($iterator)
   {
-
+    $appender = new AppendIterator();
+    $appender->append($this->iterator);
+    $appender->append(Pinq::ensureIterator($iterator, true));
+    $this->iterator = new DistinctIterator($appender->getInnerIterator());
+    return $this;
   }
 
   // deferred
   public function where($callback)
   {
-
     $this->iterator = new WhereIterator($this->iterator, $callback);
     return $this;
   }
@@ -344,7 +347,6 @@ class PinqIterator implements OuterIterator
 
   public function getInnerIterator()
   {
-
     return $this->iterator;
   }
 
@@ -357,13 +359,11 @@ class PinqIterator implements OuterIterator
 
   public function key()
   {
-
     return $this->iterator->key();
   }
 
   public function next()
   {
-
     return $this->iterator->next();
   }
   public function rewind()
@@ -372,7 +372,6 @@ class PinqIterator implements OuterIterator
   }
   public function valid()
   {
-
     return $this->iterator->valid();
   }
 }
@@ -405,6 +404,9 @@ class Pinq
 
   public static function aggregate($iterator, $seed, $callback)
   {
+    self::ensureIterator($iterator);
+    self::ensureCallback($callback);
+
     foreach($iterator as $key => $value) {
       $seed = $callback($seed, $key, $value);
     }
@@ -515,6 +517,18 @@ class Pinq
   public static function skip($iterator, $howMany)
   {
     return new LimitIterator(self::ensureIterator($iterator, true), $howMany);
+  }
+
+  public static function sum($iterator, $projection = null) 
+  {
+    self::ensureIterator($iterator);
+    self::ensureCallback($projection, true);
+    return self::aggregate($iterator, 0, function($total, $key, $value) use($projection) {
+      if($projection == null) {
+        return $total + $value;
+      }
+      else return $total + $projection($key, $value);
+    });
   }
 
   public static function take($iterator, $howMany)
