@@ -73,6 +73,52 @@ class WhereIterator extends FilterIterator
   }
 }
 
+class TakeWhileIterator extends WhereIterator
+{
+  public $active = true;
+
+  public function __construct($iterator, $filter)
+  {
+    parent::__construct($iterator, $filter);
+  }
+
+  public function rewind()
+  {
+    $this->active = true;
+    parent::rewind();
+  }
+
+  public function accept()
+  {
+    return $this->active = parent::accept();
+  }
+
+  public function valid()
+  {
+    return $this->active && parent::valid();
+  }
+}
+
+class SkipWhileIterator extends WhereIterator
+{
+  public $active = false;
+
+  public function __construct($iterator, $filter)
+  {
+    parent::__construct($iterator, $filter);
+  }
+
+  public function rewind()
+  {
+    $this->active = false;
+    parent::rewind();
+  }
+
+  public function accept()
+  {
+    return $this->active || ($this->active = !parent::accept());
+  }
+}
 
 /*
    php provides several iterators already.
@@ -243,7 +289,7 @@ class PinqIterator implements OuterIterator
   // deferred
   public function skipWhile($filter)
   {
-
+    $this->iterator = new SkipWhileIterator($this->iterator, $filter);
     return $this;
   }
 
@@ -262,7 +308,7 @@ class PinqIterator implements OuterIterator
   // deferred
   public function takeWhile($filter)
   {
-    
+   $this->iterator = new TakeWhileIterator($this->iterator, $filter); 
     return $this;
   }
 
