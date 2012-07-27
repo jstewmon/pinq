@@ -33,15 +33,17 @@ class ExceptIterator extends FilterIterator
 
   public function __construct($iterator, $except)
   {
-    foreach($except as $value) {
-      $this->exceptStore->detach($value);
+    $this->exceptStore = new SplObjectStorage();
+    foreach($except as $key => $value) {
+      $this->exceptStore->attach($value);
     }
     parent::__construct($iterator);
   }
 
   public function accept()
   {
-
+    $current = $this->current();
+    var_dump($this->exceptStore);
     if($this->exceptStore->offsetExists($current)) {
       return false;
     }
@@ -250,12 +252,12 @@ class PinqIterator implements OuterIterator
 
   public function max($projection = null)
   {
-
+    return Pinq::max($this->iterator, $projection);
   }
 
   public function min($projection = null)
   {
-
+    return Pinq::min($this->iterator, $projection);
   }
 
   // deferred
@@ -512,6 +514,34 @@ class Pinq
   public static function limit($iterator, $skip, $take)
   {
     return new LimitIterator(self::ensureIterator($iterator, true), $skip, $take);
+  }
+
+  public static function max($iterator, $projection = null)
+  {
+    self::ensureIterator($iterator);
+    self::ensureCallback($projection, true);
+    $max;
+    foreach($iterator as $key => $value) {
+      $val = $projection == null
+        ? $value
+        : $projection($key, $value);
+      if($max < $val || !isset($max)) $max = $val;
+    }
+    return $max;
+  }
+
+  public static function min($iterator, $projection = null)
+  {
+    $iterator = self::ensureIterator($iterator, true);
+    self::ensureCallback($projection, true);
+    $min;
+    foreach($iterator as $key => $value) {
+      $val = $projection == null
+        ? $value
+        : $projection($key, $value);
+      if($min > $val || !isset($min)) $min = $val;
+    }
+    return $min;
   }
 
   public static function skip($iterator, $howMany)
