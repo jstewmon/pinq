@@ -198,6 +198,11 @@ class PinqIterator implements OuterIterator
     return Pinq::last($this->iterator, $callback);
   }
 
+  public function limit($skip, $take) {
+    $this->iterator = Pinq::limit($this->iterator, $skip, $take);
+    return $this;
+  }
+
   public function max($projection = null)
   {
 
@@ -231,7 +236,7 @@ class PinqIterator implements OuterIterator
   // deferred
   public function skip($howMany)
   {
-
+    $this->iterator = Pinq::skip($this->iterator, $howMany);
     return $this;
   }
 
@@ -250,7 +255,7 @@ class PinqIterator implements OuterIterator
   // deferred
   public function take($howMany)
   {
-
+    $this->iterator = Pinq::take($this->iterator, $howMany);
     return $this;
   }
 
@@ -263,8 +268,6 @@ class PinqIterator implements OuterIterator
 
   public function toArray()
   {
-
-    var_dump($this);
     $array = array();
     foreach($this as $key => $value) {
       $array[$key] = $value;
@@ -319,8 +322,6 @@ class PinqIterator implements OuterIterator
   }
   public function rewind()
   {
-
-    var_dump($this);
     return $this->iterator->rewind();
   }
   public function valid()
@@ -397,6 +398,7 @@ class Pinq
 
   public static function first($iterator, $callback = null)
   {
+    self::ensureIterator($iterator);
     self::ensureCallback($callback, true);
 
     foreach($iterator as $key => $value) {
@@ -410,6 +412,7 @@ class Pinq
 
   public static function last($iterator, $callback = null)
   {
+    self::ensureIterator($iterator);
     self::ensureCallback($callback, true);
 
     if($iterator instanceof SeekableIterator && $iterator instanceof Countable) {
@@ -444,8 +447,7 @@ class Pinq
   }
 
   private static function lastFromArray($iterator, $callback = null)
-  {
-    
+  { 
     $value = end($iterator);
     $key = key($iterator);
     do {
@@ -459,6 +461,21 @@ class Pinq
     while($value = prev($iterator)); 
   }
 
+  public static function limit($iterator, $skip, $take)
+  {
+    return new LimitIterator(self::ensureIterator($iterator, true), $skip, $take);
+  }
+
+  public static function skip($iterator, $howMany)
+  {
+    return new LimitIterator(self::ensureIterator($iterator, true), $howMany);
+  }
+
+  public static function take($iterator, $howMany)
+  {
+    return new LimitIterator(self::ensureIterator($iterator, true), 0, $howMany);
+  }
+
   public static function where($iterator, $callback)
   {
     return PinqIterator::create($iterator)->where($callback);
@@ -469,10 +486,10 @@ class Pinq
 
   }
 
-  public static function ensureIterator($iterator)
+  public static function ensureIterator($iterator, $convertArray = false)
   {
-    if($iterator instanceof Traversable) return;
-    if(is_array($iterator)) return;
+    if($iterator instanceof Traversable) return $iterator;
+    if(is_array($iterator))return $convertArray ? new ArrayIterator($iterator) : $iterator;
     throw new InvalidArgumentException('$iterator must be either an array or an instance of Traversable');
   }
 
