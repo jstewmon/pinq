@@ -4,7 +4,6 @@ class DistinctIterator extends FilterIterator
 {
     private $objects;
     private $arrays;
-    private $ints;
     private $others;
     
     public function __construct($iterator)
