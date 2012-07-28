@@ -130,6 +130,51 @@ class SkipWhileIterator extends WhereIterator
     }
 }
 
+class ProjectionIterator implements OuterIterator
+{
+    private $iterator;
+    private $projection;
+
+    public function __construct($iterator, $projection = null)
+    {
+        $this->iterator = $iterator;
+        $this->projection = $projection;
+    }
+
+    public function getInnerIterator()
+    {
+        return $this->iterator;
+    }
+
+    /* Iterator implementation */
+    public function current()
+    {
+        return $this->projection == null
+            ? $this->iterator->current()
+            : call_user_func($this->projection,
+                             $this->iterator->key(),
+                             $this->iterator->current());
+    }
+
+    public function key()
+    {
+        return $this->iterator->key();
+    }
+
+    public function next()
+    {
+        return $this->iterator->next();
+    }
+    public function rewind()
+    {
+        return $this->iterator->rewind();
+    }
+    public function valid()
+    {
+        return $this->iterator->valid();
+    }
+}
+
 /*
      php provides several iterators already.
      
@@ -225,7 +270,7 @@ class PinqIterator implements OuterIterator
     // deferred
     public function groupBy($keySelector, $valueSelector = null)
     {
-
+        $grouper = new DistinctIterator($this->iterator);
         return $this;
     }
 
@@ -278,7 +323,7 @@ class PinqIterator implements OuterIterator
     // deferred
     public function select($callback)
     {
-
+        $this->iterator = Pinq::select($this->iterator, $callback);
         return $this;
     }
 
@@ -364,7 +409,6 @@ class PinqIterator implements OuterIterator
     /* Iterator implementation */
     public function current()
     {
-
         return $this->iterator->current();
     }
 
@@ -553,6 +597,12 @@ class Pinq
         return $min;
     }
 
+    public static function select($iterator, $projection = null)
+    {
+        $iterator = self::ensureIterator($iterator, true);
+        self::ensureCallback($projection, true);
+        return new ProjectionIterator($iterator, $projection);
+    }
     public static function skip($iterator, $howMany)
     {
         return new LimitIterator(self::ensureIterator($iterator, true), $howMany);
