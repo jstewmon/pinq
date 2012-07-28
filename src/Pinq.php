@@ -2,29 +2,39 @@
 
 class DistinctIterator extends FilterIterator
 {
-  private $store;
+  private $objects;
+  private $arrays;
+  private $ints;
+  private $others;
   
   public function __construct($iterator)
   {
     if(!($iterator instanceof Iterator)) {
       $iterator = new ArrayIterator($iterator);
     }
-    $this->store = new SplObjectStorage();
+    $this->objects = new SplObjectStorage();
+    $this->arrays = array();
+    $this->others = array();
     parent::__construct($iterator);
   }
 
   public function accept()
   {
     $current = $this->current();
-    if($this->store->offsetExists($current)) {
-      return false;
+    if($current instanceof StdClass) {
+      return $this->store->contains($current)
+        ? false
+        : $this->store->attach($current) || true;
     }
-    else {
-      $this->store[$current] = $current;
-      return true;
+    elseif(is_array($current)) {
+      return in_array($current, $this->arrays)
+        ? false
+        : ($this->arrays[] = $current) || true;
     }
+    return array_key_exists($current, $this->others)
+      ? false
+      : ($this->others[$current] = true) || true;
   }
-
 }
 
 class ExceptIterator extends FilterIterator
@@ -235,7 +245,7 @@ class PinqIterator implements OuterIterator
   }
 
   // deferred
-  public function join()
+  public function join($keySelector, $valueSelector = null)
   {
     return $this;
   }
@@ -329,7 +339,7 @@ class PinqIterator implements OuterIterator
     $appender = new AppendIterator();
     $appender->append($this->iterator);
     $appender->append(Pinq::ensureIterator($iterator, true));
-    $this->iterator = new DistinctIterator($appender->getInnerIterator());
+    $this->iterator = new DistinctIterator($appender);
     return $this;
   }
 
